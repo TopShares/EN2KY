@@ -29,15 +29,37 @@ if not exist "%GIT_BASH_EXE%" (
     exit /b 1
 )
 
-echo [信息] 正在通过 Git Bash 执行 git add -A、git commit、git push...
-"%GIT_BASH_EXE%" -lc "git add -A && git commit -m '.' && git push"
+echo [信息] 正在添加本地变更并提交...
+"%GIT_BASH_EXE%" -lc "git add -A && (git diff --cached --quiet || git commit -m '.')"
+set "COMMIT_EXIT_CODE=%ERRORLEVEL%"
+
+if not "%COMMIT_EXIT_CODE%"=="0" (
+    echo [失败] 添加或提交本地变更失败，退出码：%COMMIT_EXIT_CODE%
+    pause
+    exit /b %COMMIT_EXIT_CODE%
+)
+
+echo [信息] 正在拉取远端最新代码，推送前先执行 git pull --rebase...
+"%GIT_BASH_EXE%" -lc "git pull --rebase"
+set "PULL_EXIT_CODE=%ERRORLEVEL%"
+
+if not "%PULL_EXIT_CODE%"=="0" (
+    echo [暂停] 拉取远端最新代码失败，已停止推送。
+    echo [提示] 如果拉取过程中出现冲突，请人工解决冲突后执行 git add 文件名，再执行 git rebase --continue。
+    echo [提示] 如果不是冲突，请根据上面的错误信息人工处理拉取失败原因。
+    "%GIT_BASH_EXE%" -lc "git status --short"
+    pause
+    exit /b %PULL_EXIT_CODE%
+)
+
+echo [信息] 远端代码已同步，正在推送本地提交...
+"%GIT_BASH_EXE%" -lc "git push"
 set "PUSH_EXIT_CODE=%ERRORLEVEL%"
 
 if "%PUSH_EXIT_CODE%"=="0" (
-    echo [完成] 提交并推送成功。
+    echo [完成] 提交、拉取并推送成功。
 ) else (
-    echo [失败] 提交或推送失败，退出码：%PUSH_EXIT_CODE%
-    echo 如果提交失败，将不会继续执行推送。
+    echo [失败] 推送失败，退出码：%PUSH_EXIT_CODE%
 )
 
 pause
